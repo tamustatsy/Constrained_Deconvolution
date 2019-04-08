@@ -7,29 +7,28 @@
 # Add source files and libraries #
 ##################################
 
-library(coda)                                                                    #required by MCMCpack
-library(MCMCpack) 
-library(evd)                                                                     #required by truncdist
+if(!require('coda')) install.packages('coda')
+library(coda)                 #required by MCMCpack
+if(!require('MCMCpack')) install.packages('MCMCpack')
+library(MCMCpack)
+if(!require('evd')) install.packages('evd')
+library(evd)                  #required by truncdist
+if(!require('truncdist')) install.packages('truncdist')
 library(truncdist)
+if(!require('Rcpp')) install.packages('Rcpp')
 library(Rcpp)
+if(!require('RcppArmadillo')) install.packages('RcppArmadillo')
 library(RcppArmadillo)
-library(VGAM)                                                                    #required by Mysample.cpp
-library(rmutil)                                                                  #generate laplace random variable
-library(batch)                                                                   #required if conduct batch code for parallel
+if(!require('VGAM')) install.packages('VGAM')
+library(VGAM)                #required by Mysample.cpp
+if(!require('deconvolve')) devtools::install_github("timothyhyndman/deconvolve")
+library(deconvolve)
 
 #--files containing functions for Constrained Bayes--#
 source("../../../Myfunction.R")                                                  #this is used in computing the marginal density of X 
 source("../../../ddsc_laplaceError.R")                                           #this contains the main function to conduct the hybrid Gibbs sampler
 sourceCpp("../../../Mysample.cpp")                                               #this is used in updating the group indicator variables z
 sourceCpp("../../../Mydist.cpp")                                                 #also used in updating the group indicator variables z
-#--files containing functions for Kernel deconvolution estimator--#
-source("../../../PI_deconvUknownth4.r")
-source("../../../fdecUknown.r")
-source("../../../phiK2.r")
-source("../../../rlap.R")
-source("../../../outerop.r")
-source("../../../kernel_decon_known_u_homo.R")
-
 
 #####################
 #Global parameters  #
@@ -101,9 +100,9 @@ for(ii in 1:n){
 density.CB <- ddsc_mcmc(w, b_lap, n.burnin, n.MCMC, n, K, m, lambda, parMH, tt,  
                         Xi_1, Xi_2, z, theta, beta, alpha, p, x.grid)
 
-res.kernel <- kernel_homo(n = n, W = w, sigU = b_lap, xs = 11, lfg = 2*lfg, errortype = 'Lap')
-density.Ker <- res.kernel$y2
-xx.Ker <- res.kernel$xx
+res.kernel <- deconvolve(W1 = w, xx = seq(-max(x.grid),max(x.grid),length=lfg), errortype = 'laplace', sd_U = b_lap*sqrt(2))
+density.Ker <- res.kernel$pdf
+xx.Ker <- res.kernel$x
 
 #--compute the mean integrated absolute error--#
 imae_CB <- sum(abs(density.CB - dt(x.grid, df = df.t))*(x.grid[2]-x.grid[1]))*2        #factor 2 for the other half
