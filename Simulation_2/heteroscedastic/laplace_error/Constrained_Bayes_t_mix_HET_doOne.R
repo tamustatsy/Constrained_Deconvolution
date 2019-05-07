@@ -1,8 +1,6 @@
 ###########################################################################################################################
-#The current file is built for batch runs. It can be run on its own by specifying lines 40-42 and comment out lines 37-38 # 
+#The current file is built for batch runs. It can be run on its own by specifying lines 42-44 and comment out lines 39-40 # 
 ###########################################################################################################################
-
-
 ##################################
 # Add source files and libraries #
 ##################################
@@ -23,6 +21,10 @@ if(!require('VGAM')) install.packages('VGAM')
 library(VGAM)                #required by Mysample.cpp
 if(!require('deconvolve')) devtools::install_github("timothyhyndman/deconvolve")
 library(deconvolve)
+if(!require('batch')) install.packages('batch')
+library(batch)               #required if conducting batch code for parallel
+if(!require('transport')) install.packages('transport')
+library(transport)               #required if conducting batch code for parallel
 
 #--files containing functions for Constrained Bayes--#
 source("../../../Myfunction.R")                                                  #this is used in computing the marginal density of X 
@@ -78,8 +80,8 @@ pp <- runif(n)
 c_zero <- sum(pp < q.zero)
 sd.zero <- 0.2
 x[pp < q.zero] <- rnorm(c_zero, mean = 0, sd = sd.zero)
-b_lap <- sqrt((0.75 + x/4)^2/2)                                  #2b^2 = 1.29^2, the variance of laplace is same as variance of xs
-u <- rlaplace(n, m = 0, s = b_lap)              
+b_lap <- sqrt((0.75 + x/4)^2/2)                                  #2b^2 = var(u), the variance of laplace is same as variance of xs
+u <- rlaplace(n, location = 0, scale = b_lap)              
 w <- x + u
 
 ##################
@@ -105,21 +107,37 @@ for(ii in 1:n){
 density.CB <- ddsc_mcmc(w, b_lap, n.burnin, n.MCMC, n, K, m, lambda, parMH, tt,  
                         Xi_1, Xi_2, z, theta, beta, alpha, p, x.grid)
 
-res.kernel <- deconvolve(W1 = w, xx = seq(-max(x.grid),max(x.grid),length=lfg), errortype = 'laplace', sd_U = b_lap*sqrt(2))
+res.kernel <- deconvolve(W1 = w, xx = seq(-max(x.grid),max(x.grid),length=2*lfg), 
+                         errortype = 'laplace', sd_U = b_lap*sqrt(2))
 density.Ker <- res.kernel$pdf
 xx.Ker <- res.kernel$x
 
-#--compute the mean integrated absolute error--#
-imae_CB <- sum(abs(density.CB - dt(x.grid, df = df.t))*(x.grid[2]-x.grid[1]))*2        #factor 2 for the other half
-imse_CB <- sqrt(sum((density.CB - dt(x.grid, df = df.t))^2*(x.grid[2]-x.grid[1])))*2
-
-imse_Kernel <- sqrt(sum((density.Ker - dt(xx.Ker, df = df.t))^2*(xx.Ker[2]-xx.Ker[1])))
-imae_Kernel <- sum(abs(density.Ker - dt(xx.Ker, df = df.t))*(xx.Ker[2]-xx.Ker[1]))
+#--compute integrated absolute error and square root of integrated squared error--#
+density.true <- q.zero*dnorm(x.grid, mean = 0, sd = sd.zero) + (1-q.zero)*dt(x.grid, df = df.t)
+imae_CB <- sum(abs(density.CB - density.true)*(x.grid[2]-x.grid[1]))*2        #factor 2 for the other half
+imse_CB <- sqrt(sum((density.CB - density.true)^2*(x.grid[2]-x.grid[1])))*2
+density_true <- q.zero*dnorm(xx.Ker, mean = 0, sd = sd.zero) + (1-q.zero)*dt(xx.Ker, df = df.t)
+imae_Ker <- sum(abs(density.Ker - density_true)*(xx.Ker[2]-xx.Ker[1]))
+imse_Ker <- sqrt(sum((density.Ker - density_true)^2*(xx.Ker[2]-xx.Ker[1])))
+#--wasserstein distance--#
+dsample_CB <- sample(x = c(rev(x.grid),x.grid[-1]), prob = c(rev(density.CB),density.CB[-1]), 
+                     size = 1000000, replace = TRUE)
+dsample_0 <- sample(x = c(rev(x.grid),x.grid[-1]), prob = c(rev(density.true),density.true[-1]), 
+                    size = 1000000, replace = TRUE)
+wass_CB <- wasserstein1d(dsample_CB, dsample_0, p = 2)
+dsample_Ker <- sample(x = xx.Ker, prob = density.Ker, size = 1000000, replace = TRUE)
+dsample_0 <- sample(x = xx.Ker, prob = density_true, size = 1000000, replace = TRUE)
+wass_Ker <- wasserstein1d(dsample_Ker, dsample_0, p = 2)
+#--absolute difference of exceedance--#
+x.grid.cut <- x.grid > sd.zero*3
+excprob_CB <- abs(sum(density.CB[x.grid.cut]-density.true[x.grid.cut])*(x.grid[2]-x.grid[1]))*2
+xx.cut <- abs(xx.Ker) > 3*sd.zero
+excprob_Ker <- abs(sum(density.Ker[xx.cut]-density_true[xx.cut])*(xx.Ker[2] - xx.Ker[1]))
 
 #--write the density estimators and other parameters in a csv file--#
-write.table(data.frame(seed, imae_CB, imse_CB, imae_Kernel, imse_Kernel, x.grid, 
-            density.CB, xx.Ker, density.Ker), 
-            file=paste("./result/", n, "/seed", seed, "_HOMO.csv", sep = ""), 
+write.table(data.frame(seed, imae_CB, imse_CB, wass_CB, excprob_CB, imae_Ker, 
+                       imse_Ker, wass_Ker, excprob_Ker, x.grid, density.CB, xx.Ker, density.Ker), 
+            file=paste("./result/", n, "/seed", seed, "_HET.csv", sep = ""), 
             append = FALSE, row.names = FALSE, col.names = TRUE, sep = ",")
 
 

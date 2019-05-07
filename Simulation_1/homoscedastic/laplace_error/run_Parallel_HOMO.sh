@@ -2,7 +2,7 @@
 #SBATCH -N 1 
 #SBATCH -n 10
 #SBATCH --mem=30G 
-#SBATCH --time=20:00:00 
+#SBATCH --time=30:00:00 
 #SBATCH --partition=stats_short
 
 module load R

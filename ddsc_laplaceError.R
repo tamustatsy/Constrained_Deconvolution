@@ -55,7 +55,7 @@ ddsc_mcmc <- function(w, b_lap, n.burnin, n.MCMC, n, K, m, lambda, parMH = 2,
         
         if(iii%%100==0)
             print(iii)
-    #updating xs_1, ..., xs_n from a truncated normal distribution
+    #updating x_1, ..., x_n from a truncated normal distribution
     ############################################################################
     #X_i = W_i + U_i                                                           #
     #1. generate U_i in a vectorized way:                                      #
@@ -65,14 +65,14 @@ ddsc_mcmc <- function(w, b_lap, n.burnin, n.MCMC, n, K, m, lambda, parMH = 2,
     ############################################################################
     uu_cut_low <- - theta - w
     uu_cut_up <- theta - w
-    puu_cut_low <- plaplace(uu_cut_low, m = 0, s = b_lap)
-    puu_cut_up <- plaplace(uu_cut_up, m = 0, s = b_lap)
+    puu_cut_low <- plaplace(uu_cut_low, location = 0, scale = b_lap)
+    puu_cut_up <- plaplace(uu_cut_up, location = 0, scale = b_lap)
 
     uu <- runif(n)
     uu_ext <- (puu_cut_up - puu_cut_low)*uu + puu_cut_low
     uu_ext[uu_ext == 1] <- 1 - 1E-5
     uu_ext[uu_ext == 0] <- 1E-5
-    xs <- w + qlaplace(uu_ext, m = 0, s = b_lap)
+    x <- w + qlaplace(uu_ext, location = 0, scale = b_lap)
 
     #--------------------------updating z_1, ..., z_n--------------------------#
     d.ordinates = mydgamma(theta, s=alpha, r=beta)             #see Mydist.cpp
@@ -112,9 +112,9 @@ ddsc_mcmc <- function(w, b_lap, n.burnin, n.MCMC, n, K, m, lambda, parMH = 2,
         term_1 <- parMH *(alpha[kk]/alpha.tilde[kk] - alpha.tilde[kk]/alpha[kk])
         term_2 <- (alpha.tilde[kk] - alpha[kk])*(lambda - n.kk.z[kk]*log(beta[kk]) 
                   - s.kk.ltheta[kk])
-        log.mh.ratio[kk] <- (2*parMH  - 1)*(log(alpha[kk]) - log(alpha.tilde[kk]))
-                            + n.kk.z[kk]*(lgamma(alpha[kk]) - lgamma(alpha.tilde[kk]))
-                            - term_1 - term_2 + log(tp_proposed)-log(tp_current)
+        log.mh.ratio[kk] <- (2*parMH  - 1)*(log(alpha[kk]) - log(alpha.tilde[kk])) +
+                            n.kk.z[kk]*(lgamma(alpha[kk]) - lgamma(alpha.tilde[kk])) -
+                            term_1 - term_2 + log(tp_proposed)-log(tp_current)
         mh.ratio[kk] = exp(log.mh.ratio[kk])
     }
     mh.ratio[which(is.nan(mh.ratio)==T)] = 0

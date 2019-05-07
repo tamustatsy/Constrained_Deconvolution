@@ -10,7 +10,7 @@
 # n: sample size, equals the length of w                             #
 # K: number of components in mixtures of Gamma distributions         #
 # m: the concentration parameter in Dirichlet prior                  #
-# lambda: the parameter in the prior of shape parameters of Gamma    #               
+# lambda: the parameter in the prior of shape parameters of Gamma    #
 # parMH: the parameter in the proposal distribution of shape         #
 #        parameters of Gamma, default value 2                        #
 # tt: the lower bound of shape parameters of Gamma                   #
@@ -24,18 +24,18 @@
 # Input III: the specs associated with the output                    #
 # x.grid: the grid points for the density output, necessarily across #
 # an interval [0, R] for some R > 0 due to symmetry of density       #
-#--------------------------------------------------------------------#                                                                    
+#--------------------------------------------------------------------#
 # Output: the density estimator                                      #
 # density.x: the estimated density on the specified grids, equals    #
 #            the average of MCMC samples after burn-in               #
 ######################################################################
 
-ddsc_mcmc <- function(w, sd_u, n.burnin, n.MCMC, n, K, m, lambda, parMH = 2, 
+ddsc_mcmc <- function(w, sd_u, n.burnin, n.MCMC, n, K, m, lambda, parMH = 2,
                       tt, Xi_1, Xi_2, z, theta, beta, alpha, p, x.grid){
-    
+
     lfg <- length(x.grid)
     density.x <- rep(0, lfg)
-    
+
     ################
     # MCMC storage #
     ################
@@ -47,7 +47,7 @@ ddsc_mcmc <- function(w, sd_u, n.burnin, n.MCMC, n, K, m, lambda, parMH = 2,
     log.mh.ratio <- numeric(K)
     alpha.tilde <- numeric(K)
     den_i <- numeric(lfg)
-    
+
     ##############
     # Start MCMC #
     ##############
@@ -55,7 +55,7 @@ ddsc_mcmc <- function(w, sd_u, n.burnin, n.MCMC, n, K, m, lambda, parMH = 2,
 
     if(iii%%100==0)
         print(iii)
-        
+
     #-------updating x_1, ..., x_n from a truncated normal distribution--------#
     ############################################################################
     #X_i = W_i - U_i                                                           #
@@ -74,7 +74,7 @@ ddsc_mcmc <- function(w, sd_u, n.burnin, n.MCMC, n, K, m, lambda, parMH = 2,
     uu_ext[uu_ext == 1] <- 1 - 1E-5
     uu_ext[uu_ext == 0] <- 1E-5
     x <- w - qnorm(uu_ext, mean = 0, sd = sd_u)
-
+    
     #--------------------------updating z_1, ..., z_n--------------------------#
     d.ordinates = mydgamma(theta, s=alpha, r=beta)             #see Mydist.cpp
     z <- mysample(1:K, d.ordinates, p, TRUE)                 #see Mysample.cpp
@@ -106,16 +106,16 @@ ddsc_mcmc <- function(w, sd_u, n.burnin, n.MCMC, n, K, m, lambda, parMH = 2,
 
     #---------------------updating alpha_1, ..., alpha_K-----------------------#
     for(kk in 1:K){
-        alpha.tilde[kk] <- rtrunc(1, "gamma", a = tt, b = Inf, shape = parMH, 
+        alpha.tilde[kk] <- rtrunc(1, "gamma", a = tt, b = Inf, shape = parMH,
                                   rate = parMH/alpha[kk])
         tp_proposed <- 1 - pgamma(tt, parMH , rate = parMH/alpha[kk])
         tp_current <- 1 - pgamma(tt, parMH , rate = parMH/alpha.tilde[kk])
         term_1 <- parMH *(alpha[kk]/alpha.tilde[kk] - alpha.tilde[kk]/alpha[kk])
-        term_2 <- (alpha.tilde[kk] - alpha[kk])*(lambda - n.kk.z[kk]*log(beta[kk]) 
+        term_2 <- (alpha.tilde[kk] - alpha[kk])*(lambda - n.kk.z[kk]*log(beta[kk])
                   - s.kk.ltheta[kk])
-        log.mh.ratio[kk] <- (2*parMH  - 1)*(log(alpha[kk]) - log(alpha.tilde[kk]))
-                            + n.kk.z[kk]*(lgamma(alpha[kk]) - lgamma(alpha.tilde[kk]))
-                            - term_1 - term_2 + log(tp_proposed)-log(tp_current)
+        log.mh.ratio[kk] <- (2*parMH  - 1)*(log(alpha[kk]) - log(alpha.tilde[kk])) +
+                            n.kk.z[kk]*(lgamma(alpha[kk]) - lgamma(alpha.tilde[kk])) -
+                            term_1 - term_2 + log(tp_proposed)-log(tp_current)
         mh.ratio[kk] = exp(log.mh.ratio[kk])
     }
     mh.ratio[which(is.nan(mh.ratio)==T)] = 0
@@ -129,11 +129,11 @@ ddsc_mcmc <- function(w, sd_u, n.burnin, n.MCMC, n, K, m, lambda, parMH = 2,
         p.vec <- as.vector(p)
         for(gg in 1:(lfg - 1)){
             den_i[gg] <- integrate(fun_integ, lower=x.grid[gg], upper=x.grid[gg+1],
-                                   p = p.vec, shape = alpha, rate = beta, 
+                                   p = p.vec, shape = alpha, rate = beta,
                                    subdivisions = 2000)$value
         }
         den_i[lfg] <- integrate(fun_integ, lower = x.grid[lfg], upper = Inf,
-                                p = p.vec, shape = alpha, rate = beta, 
+                                p = p.vec, shape = alpha, rate = beta,
                                 subdivisions = 2000)$value
         density.x <- density.x + rev(cumsum(rev(den_i)))
     }
