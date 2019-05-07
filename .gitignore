@@ -1,1 +1,10 @@
 Code_not_for_github
+
+#Ignore folder named 'result'
+Simulation_1/heteroscedastic/laplace_error/result/
+Simulation_1/homoscedastic/laplace_error/result/
+Simulation_2/heteroscedastic/laplace_error/result/
+Simulation_2/heteroscedastic/normal_error/result/
+Simulation_2/homoscedastic/laplace_error/result/
+Simulation_2/homoscedastic/normal_error/result/
+Test_using_R_package/
